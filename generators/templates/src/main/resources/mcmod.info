@@ -1,0 +1,16 @@
+[
+{
+  "modid": "<%= modid %>",
+  "name": "<%= modname %>",
+  "description": "<%= description %>",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "url": "",
+  "updateUrl": "",
+  "authorList": [<% if (author) { %>'<%= author %>'<% } %>],
+  "credits": "<%= credits %>",
+  "logoFile": "",
+  "screenshots": [],
+  "dependencies": []
+}
+]
