@@ -3,6 +3,7 @@ const Generator = require('yeoman-generator');
 
 const request = require('request-promise-native');
 const cheerio = require('cheerio');
+const fg = require('fast-glob');
 
 module.exports = class extends Generator {
     constructor(args, opts) {
@@ -10,16 +11,16 @@ module.exports = class extends Generator {
 
         this.javaPath = "src/main/java/";
         this.resourcePath = "src/main/resources/";
-        this.basePackage = "org/dave/todo/";
-        this.classPath = this.javaPath + this.basePackage;
-        this.assetPath = this.resourcePath + "assets/todo/";
     }
 
     initializing() {
         return Promise.all([
             this._fetchForgeVersion(),
-            this._fetchLatestMavenVersion('http://dvs1.progwml6.com/files/maven/mezz/jei/jei_1.12.2/', 'jeiVersion'),
-            this._fetchLatestMavenVersion('https://maven.tterrag.com/index.php?dir=mcjty/theoneprobe/TheOneProbe-1.12', 'topVersion'),
+            this._fetchLatestMavenVersion('https://dvs1.progwml6.com/files/maven/mezz/jei/jei-1.14.4/', 'jeiVersion'),
+            this._fetchLatestMavenVersion('http://maven.davenonymous.com/repository/maven-releases/com/davenonymous/libnonymous/libnonymous-1.14.4', 'libnonymousVersion'),
+            this._fetchLatestMavenVersion('https://maven.tterrag.com/mcjty/theoneprobe/TheOneProbe-1.14', 'topVersion'),
+            this._fetchLatestMavenVersion('https://maven.blamejared.com/com/blamejared/crafttweaker/CraftTweaker-1.14.4', 'crafttweakerVersion'),
+            this._fetchLatestMavenVersion('https://tehnut.info/maven/mcp/mobius/waila/Hwyla', 'hwylaVersion'),
         ]);
     }
 
@@ -35,7 +36,7 @@ module.exports = class extends Generator {
                     if(url == undefined) {
                         return true;
                     }
-                    let res = url.match(/forge-1\.12\.2-(.*?)-mdk\.zip$/)
+                    let res = url.match(/forge-1\.14\.4-(.*?)-mdk\.zip$/)
                     if(res == null || res == undefined) {
                         return true;
                     }
@@ -44,6 +45,7 @@ module.exports = class extends Generator {
                     return false;
                 });
 
+                this.log("Found forge: " + lfV);
                 this.latestForgeVersion = lfV;
                 resolve(lfV);
             }).catch(reject);
@@ -58,6 +60,7 @@ module.exports = class extends Generator {
                 let release = $('release').first();
 
                 let version = release.text();
+                this.log("Found " + propName + ": " + version);
                 this[propName] = version;
                 resolve(version);
             }).catch(reject);
@@ -84,8 +87,7 @@ module.exports = class extends Generator {
         }, {
             name    : 'author',
             message : 'Your developer name',
-            default : 'Davenonymous',
-            store   : true
+            default : 'Davenonymous'
         }, {
             name    : 'credits',
             message : 'Credits',
@@ -96,7 +98,7 @@ module.exports = class extends Generator {
             name    : 'group',
             message : 'The Java package name',
             default : function(props) {
-                return "org.dave." + props.modid;
+                return "com.davenonymous." + props.modid;
             },
             validate: function(input) {
                 return !/\s/g.test(input) && /^[a-z\.]+$/.test(input);
@@ -144,7 +146,7 @@ module.exports = class extends Generator {
             message : 'Forge Version to use',
             default : this.latestForgeVersion,
             validate: function(input) {
-                return /^\d+\.\d+\.\d+\.\d+$/g.test(input);
+                return !/\s/g.test(input);
             }
         },
         {
@@ -154,6 +156,8 @@ module.exports = class extends Generator {
             choices: [
                 { name: "Just Enough Items", checked: true },
                 { name: "The One Probe", checked: true },
+                { name: "CraftTweaker", checked: true },
+                { name: "Hwyla", checked: true },
             ]
         }];
 
@@ -166,28 +170,33 @@ module.exports = class extends Generator {
         let props = this.props;
         props.jeiVersion = this.jeiVersion;
         props.topVersion = this.topVersion;
+        props.hwylaVersion = this.hwylaVersion;
+        props.crafttweakerVersion = this.crafttweakerVersion;
+        props.libnonymousVersion = this.libnonymousVersion;
 
         console.log(props);
 
         var tplFiles = [
             'build.gradle',
-            'build.properties',
-            `${this.resourcePath}mcmod.info`,
+            'gradle.properties',
+            'README.md',
+            `${this.resourcePath}/META-INF/mods.toml`,
             `${this.resourcePath}pack.mcmeta`,
         ];
 
         var cpFiles = [
-            'gradle.properties',
+            '.gitignore',
+            'forge-CREDITS.txt',
+            'forge-LICENSE.txt',
             'gradlew',
             'gradlew.bat',
-            '.travis.yml',
-            '.gitignore',
             'gradle/wrapper/gradle-wrapper.jar',
-            'gradle/wrapper/gradle-wrapper.properties'
+            'gradle/wrapper/gradle-wrapper.properties',
+            'LICENSE.md'
         ];
 
         var assetFiles = [
-            'lang/en_us.lang',
+            'lang/en_us.json',
             'models/item/.gitkeep',
             'models/block/.gitkeep',
             'textures/blocks/.gitkeep',
@@ -196,16 +205,11 @@ module.exports = class extends Generator {
             'blockstates/.gitkeep',
         ];
 
-        var javaFiles = [
-            'util/Logz.java',
-            'util/ResourceLoader.java',
-            'proxy/CommonProxy.java',
-            'proxy/ClientProxy.java',
-            'proxy/ServerProxy.java',
-            'init/Blockss.java',
-            'init/Itemss.java',
-            'config/ConfigurationHandler.java',
+        var dataFiles = [
+            '.gitkeep'
         ];
+
+        var javaFiles = fg.sync(`**/*.java`, {cwd: this.templatePath(this.javaPath)}).filter(entry => !entry.endsWith("Main.java"))
 
         tplFiles.forEach(file => {
             this.fs.copyTpl(this.templatePath(file), this.destinationPath(file), props);
